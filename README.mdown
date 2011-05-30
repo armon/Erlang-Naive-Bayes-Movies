@@ -1,0 +1,62 @@
+# Erlang Naive Bayes Classifier #
+
+This is a simple project to classify text using a [naive bayesian classifier](http://en.wikipedia.org/wiki/Naive_Bayes_classifier).
+A Naive Bayes classifier is based on Bayes theorem and is an extremely simple text classification algorithm that is
+mostly based on counting of "features".
+
+In this example we are trying to analyze movie reviews and mine them for features that we can use to determine
+if a movie review if positive or negative. We have a set of training data in priv/training/ which provides 800
+example movie reviews that are categorized as positive or negative.
+
+To test our classifier, we also have a testing set in priv/test/, which provides 200 similarly categorized reviews.
+
+The goal is to build a model from our training data which should provide maximum accuracy for the testing set.
+
+## Text Features ##
+
+For this simple prototype, we are not doing anything special. We split the file and get all the words or
+unigrams, and treat those as our features. We do a simple count of occurences and then use that as the basis
+for computing the propability of those features occuring.
+
+Extensions to this could include looking at bigrams or trigrams, or analyzing other features such as the location
+of words (proximity to beginning / end of sentence, etc.).
+
+## Training Architecture ##
+
+The training architecture involves a handful of processes that communicate to build the model.
+We have a process which writes the model, two which aggregate results, and several hundred
+which count the tokens in the individual processes.
+
+The main process spawns the model\_store first, which waits for the aggregated positive and
+negative results. Once those results are available, it writes them to a file, informs the main
+process it is complete, and exits.
+
+After starting the model store, the main process starts 2 aggregator processes, one for
+positive tokens and one for negative tokens. After the individual files are summarized, that
+information is sent to the aggregators which accumulate the results. Once all the learners are finished,
+the main process instructs the aggregators to flush their results to the model\_store, which will write
+the results out.
+
+Once the model store and aggregators are ready, the main process spawns a new process for
+each file that should be learned from. The learners tokenize the file, and count the occurrences
+of each token. The learners forward the results to the aggregators, inform the main process they
+are finished, and then exit.
+
+The main process spawns all the processes, and then waits for everything to terminate.
+
+## Testing Architecture ##
+
+The testing architecture is much simpler. There are only 2 processes, the main process
+and a set of classifiers. The main process starts a pool of classifiers, and then sends
+all the test files to the pool to be classified. Once all the files are exhausted, the pool
+is shutdown and the process exits.
+
+## Playing with it ##
+
+Just use the make file to get going:
+
+    $ make
+    $ make train
+    $ make test
+
+
